@@ -37,8 +37,7 @@ grep
 sed
 openssl
 bash
-zip
-unzip
+tar
 split
 tr
 du

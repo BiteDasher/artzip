@@ -58,15 +58,15 @@ decryptall() {
 
 transform() {
 	echo "Compressing..."
-	zip -9 "$_S" "$_S".*.artzip.c
+	tar -c "$_S".*.artzip.c -f "$_S".tar
 	rm "$_S".*.artzip.c
-	openssl enc -e -k "$(cat .base64)" -in "$_S".zip -out "$_S".az -salt -iter 10000 -md sha512
+	openssl enc -e -k "$(cat .base64)" -in "$_S".tar -out "$_S".az -salt -iter 10000 -md sha512
 }
 transform2() {
-	openssl enc -d -k "$TRIGGERS" -in "$EXTRACT" -out "$_S".zip -salt -iter 10000 -md sha512
+	openssl enc -d -k "$TRIGGERS" -in "$EXTRACT" -out "$_S".tar -salt -iter 10000 -md sha512
 	echo "Unpacking..."
-	unzip "$_S".zip
-	rm "$_S".zip
+	tar -x -v -f "$_S".tar
+	rm "$_S".tar
 }
 transform3() {
 	local _start=1
@@ -125,6 +125,10 @@ case "$1" in
 	-x|--extract)
 	if [[ ! -f "$2" || -z "$2" ]]; then
 		echo "No compressed files prefix provided"
+		exit 2
+	fi
+	if [ "$2" != *.az ]; then
+		echo "$2 is not ArtZip archive"
 		exit 2
 	fi
 	if [ -z "$3" ]; then
