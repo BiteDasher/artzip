@@ -1,6 +1,5 @@
 #!/bin/bash
 unset CREATE EXTRACT
-_already=0
 if [ -z "$BS" ]; then BS=1048576; fi
 random() {
 	tr -dc 'A-Za-z0-9!"#$%&'\''()*+,-./:;<=>?@[\]^_`{|}~' < /dev/urandom | head -c 20
@@ -60,10 +59,10 @@ transform() {
 	echo "Compressing..."
 	tar -c "$_S".*.artzip.c -f "$_S".tar
 	rm "$_S".*.artzip.c
-	openssl enc -e -k "$(cat .base64)" -in "$_S".tar -out "$_S".az -salt -iter 10000 -md sha512
+	openssl enc -e -k "$(openssl passwd -6 -in <(echo "$_S") -salt "$(echo "$_S" | wc -m)")" -in "$_S".tar -out "$_S".az -salt -iter 10000 -md sha512
 }
 transform2() {
-	openssl enc -d -k "$TRIGGERS" -in "$EXTRACT" -out "$_S".tar -salt -iter 10000 -md sha512
+	openssl enc -d -k "$(openssl passwd -6 -in <(echo "${FILENAME}") -salt "$(echo "${FILENAME}" | wc -m)")" -in "$EXTRACT" -out "$_S".tar -salt -iter 10000 -md sha512
 	echo "Unpacking..."
 	tar -x -v -f "$_S".tar
 	rm "$_S".tar
@@ -209,9 +208,9 @@ if [ -n "$EXTRACT" ]; then
 	[ "${EXTRACT::2}" == "./" ] && EXTRACT=".${EXTRACT}"
 	OLDKEY="$KEY"
 	cryptkey
+	FILENAME="${_S%%.az}"
 	transform2
 	decryptall
-	FILENAME="${_S%%.az}"
 	transform3
 	mv "$_S" "$_PWD"/"$FILENAME"
 	: ""

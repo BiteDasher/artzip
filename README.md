@@ -27,7 +27,8 @@ We encrypt each piece with "**KEY + RANDOM**" \
 \
 We randomly encrypt for each piece using the old 123 key, convert it to base64 and save it to the random\_keys file \
 \
-Combine all chunks into one file wih `cat >>`
+Combine all chunks into one file wih `cat >>` \
+(BTW, the name of file is important for decrypting)
 
 ## Needed binaries:
 ```
@@ -41,4 +42,5 @@ tar
 split
 tr
 du
+wc
 ```
