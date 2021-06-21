@@ -1,0 +1,216 @@
+#!/bin/bash
+unset CREATE EXTRACT
+_already=0
+if [ -z "$BS" ]; then BS=1048576; fi
+random() {
+	tr -dc 'A-Za-z0-9!"#$%&'\''()*+,-./:;<=>?@[\]^_`{|}~' < /dev/urandom | head -c 20
+	echo ''
+}
+duthis() {
+	size="$(du -hB1 "$1")"
+	size="${size/[[:blank:]]**/}"
+	size="$((size/1024))"
+	echo "File size in kilobytes: $size"
+}
+cryptkey() {
+	if [ -n "$(echo "$SED" | grep -o "[^A-Za-z0-9+:@_~]" | sed '/^ $/d')" ]; then
+		echo "Illegal characters appears in sed dictionary"
+		exit 7
+	fi
+	KEY="$(
+while read -rn 1 char; do
+	echo "$char"
+done <<<"$KEY")"
+	FILE="$(echo "$SED" | sed -e 's/^/s\/\^/' -e 's/ /$\//' -e 's/$/\//')"
+	KEY="$(echo "$KEY" | sed -f <(echo "$FILE") | tr -d '\n')"
+}
+gettrigger() {
+	TRIGGER="$(echo "$TRIGGERS" | sed "${1}q;d" | openssl enc -d -k "$OLDKEY" -aes256 -in - -out - -salt -iter 10000 -base64 -A)" || exit 1
+}
+cryptall() {
+	local _start=1
+	local _lines="$(for i in ./*; do echo "$i"; done | wc -l)"
+	echo "Encrypting..."
+	for file in ./*; do
+		echo -ne "\rProgress: [$_start/$_lines]"
+		TRIGGER="$(random)"
+		openssl enc -e -k "$KEY $TRIGGER" -aes256 -in "$file" -out "$file".c -salt -iter 10000 -md sha512
+		echo "$TRIGGER" | openssl enc -e -k "$OLDKEY" -aes256 -in - -out - -salt -iter 10000 -base64 -A >> .base64
+		echo '' >> .base64
+		rm -f "$file"
+		((_start++))
+	done
+	echo ''
+}
+decryptall() {
+	local _start=1
+	local _lines="$(for i in ./*; do echo "$i"; done | wc -l)"
+	echo "Decrypting..."
+	for file in ./*; do
+		echo -ne "\rProgress: [$_start/$_lines]"
+		gettrigger $_start
+		openssl enc -d -k "$KEY $TRIGGER" -aes256 -in "$file" -out "$file".e -salt -iter 10000 -md sha512 || exit 1
+		rm -f "$file"
+		((_start++))
+	done
+	echo ''
+}
+
+transform() {
+	echo "Compressing..."
+	zip -9 "$_S" "$_S".*.artzip.c
+	rm "$_S".*.artzip.c
+	openssl enc -e -k "$(cat .base64)" -in "$_S".zip -out "$_S".az -salt -iter 10000 -md sha512
+}
+transform2() {
+	openssl enc -d -k "$TRIGGERS" -in "$EXTRACT" -out "$_S".zip -salt -iter 10000 -md sha512
+	echo "Unpacking..."
+	unzip "$_S".zip
+	rm "$_S".zip
+}
+transform3() {
+	local _start=1
+	local _lines="$(for i in ./*; do echo "$i"; done | wc -l)"
+	echo "Combining..."
+	for file in ./"$FILENAME".*.artzip.c.e; do
+		echo -ne "\rProgress: [$_start/$_lines]"
+		cat "$file" >> "$_S"
+		rm "$file"
+		((_start++))
+	done
+	echo ''
+}
+		
+
+if [[ "$1" != +(-c|--create|-x|--extract) ]]; then
+	echo "Specify what you are gonna do"
+	exit 1
+fi
+case "$1" in
+	-c|--create)
+	if [[ ! -f "$2" || -z "$2" ]]; then
+		echo "No raw file provided"
+		exit 1
+	fi
+	if [ -z "$3" ]; then
+		echo "No key specified"
+		exit 1
+	fi
+	_P="$(dirname "$2")"
+	_S="$(basename "$2")"
+	CREATE="$_P/$_S"
+	if [[ "$3" == +(-f|--file) && -n "$4" ]]; then
+		if [ -f "$4" ]; then
+			KEY="$(< "$4")"
+			if [ -f "$5" ]; then
+				SED="$(< "$5")"
+			else
+				echo "sed dictionary not found"
+				exit 5
+			fi
+		else
+			echo "No file key found"
+			exit 3
+		fi
+	else
+		KEY="$3"
+		if [ -f "$4" ]; then
+			SED="$(< "$4")"
+		else
+			echo "sed dictionary not found"
+			exit 5
+		fi
+	fi
+	;;
+	-x|--extract)
+	if [[ ! -f "$2" || -z "$2" ]]; then
+		echo "No compressed files prefix provided"
+		exit 2
+	fi
+	if [ -z "$3" ]; then
+		echo "No key specified"
+		exit 1
+	fi
+	_P="$(dirname "$2")"
+	_S="$(basename "$2")"
+	EXTRACT="$_P/$_S"
+	if [ -z "$EXTRACT" ]; then
+		echo "artzip files not found"
+		exit 2
+	fi
+	if [[ "$3" == +(-f|--file) && -n "$4" ]]; then
+		if [ -f "$4" ]; then
+			KEY="$(< "$4")"
+		else
+			echo "key file not found"
+			exit 3
+		fi
+		if [ -f "$5" ]; then
+			SED="$(< "$5")"
+		else
+			echo "sed dictionary not found"
+			exit 5
+		fi
+		if [ -f "$6" ]; then
+			TRIGGERS="$(< "$6")"
+		else
+			echo "triggers file not found"
+			exit 4
+		fi
+	else
+		KEY="$3"
+		if [ -f "$4" ]; then
+			SED="$(< "$4")"
+		else
+			echo "sed dictionary not found"
+			exit 5
+		fi
+		if [ -f "$5" ]; then
+			TRIGGERS="$(< "$5")"
+		else
+			echo "triggers file not found"
+			exit 4
+		fi
+	fi
+	;;
+	*)
+	echo "Unknown argument"
+	exit 6
+	;;
+esac
+if [ -n "$CREATE" ]; then
+	duthis "$CREATE"
+	_PWD="$PWD"
+	rm -rf ./.ARTZIP_PROCESS
+	mkdir ./.ARTZIP_PROCESS || exit 1
+	cd ./.ARTZIP_PROCESS
+	[ "${CREATE::2}" == "./" ] && CREATE=".${CREATE}"
+	split -b "$BS" "$CREATE" "$_S". --additional-suffix=.artzip
+	OLDKEY="$KEY"
+	cryptkey
+	cryptall
+	transform
+	mv "$_S".az "$_PWD"/"$_S".az
+	mv .base64 "$_PWD"/random_keys
+	rm -rf ./.ARTZIP_PROCESS
+	: ""
+	exit 0
+fi
+if [ -n "$EXTRACT" ]; then
+	duthis "$EXTRACT"
+	_PWD="$PWD"
+	rm -rf ./.ARTZIP_PROCESS
+	mkdir ./.ARTZIP_PROCESS || exit 1
+	cd ./.ARTZIP_PROCESS
+	[ "${EXTRACT::2}" == "./" ] && EXTRACT=".${EXTRACT}"
+	OLDKEY="$KEY"
+	cryptkey
+	transform2
+	decryptall
+	FILENAME="${_S%%.az}"
+	transform3
+	mv "$_S" "$_PWD"/"$FILENAME"
+	: ""
+	rm -rf ./.ARTZIP_PROCESS
+	exit 0
+fi
