@@ -184,8 +184,10 @@ case "$1" in
 	;;
 	-h|--help)
 	bn="$(basename $0)"
-	echo "$bn --create FILE KEY/KEYFILE SED_DICT"
-	echo "$bn --extract FILE KEY/KEYFILE SED_DICT CHUNK_KEYFILE"
+	echo "$bn --create FILE KEY SED_DICT"
+	echo "  $bn --create FILE -f KEYFILE SED_DICT"
+	echo "$bn --extract FILE KEY SED_DICT CHUNK_KEYFILE"
+	echo "  $bn --extract FILE -f KEYFILE SED_DICT CHUNK_KEYFILE"
 	echo "  bash ${bn}_gen_sed_random > SED_DICT"
 	exit 0
 	;;

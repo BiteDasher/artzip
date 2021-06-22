@@ -3,8 +3,10 @@ A script for splitting files and encrypt them separately, and then combine them 
 
 ## Basic syntax:
 ```
-artzip --create FILE KEY/KEYFILE SED_DICT
-artzip --extract FILE.az KEY/KEYFILE SED_DICT CHUNK_KEYFILE
+artzip --create FILE KEY SED_DICT
+  artzip --create FILE -f KEYFILE SED_DICT
+artzip --extract FILE KEY SED\_DICT CHUNK_KEYFILE
+  artzip --extract FILE -f KEYFILE SED_DICT CHUNK_KEYFILE
 ```
 For creating SED\_DICT:
 ```
