@@ -4,7 +4,7 @@ A script for splitting files and encrypt them separately, and then combine them 
 ## Basic syntax:
 ```
 artzip --create FILE KEY/KEYFILE SED_DICT
-artzip --extract FILE.az KEY/KEYFILE SED_DICT random_keys
+artzip --extract FILE.az KEY/KEYFILE SED_DICT CHUNK_KEYFILE
 ```
 
 ## Scheme of work:

@@ -21,20 +21,20 @@ while read -rn 1 char; do
 	echo "$char"
 done <<<"$KEY")"
 	FILE="$(echo "$SED" | sed -e 's/^/s\/\^/' -e 's/ /$\//' -e 's/$/\//')"
-	KEY="$(echo "$KEY" | sed -f <(echo "$FILE") | tr -d '\n')"
+	KEY="$(echo "$KEY" | sed -f <(echo "$FILE") -e ':a;N;$!ba;s/\n//g')"
 }
 gettrigger() {
-	TRIGGER="$(echo "$TRIGGERS" | sed "${1}q;d" | openssl enc -d -k "$OLDKEY" -aes256 -in - -out - -salt -iter 10000 -base64 -A)" || exit 1
+	TRIGGER="$(echo "$TRIGGERS" | sed "${1}q;d" | openssl enc -d -k "$OLDKEY" -aes256 -in - -out - -salt -iter 10000 -base64 -A)" || exit 8
 }
 cryptall() {
 	local _start=1
 	local _lines="$(for i in ./*; do echo "$i"; done | wc -l)"
-	echo "Encrypting..."
+	echo "Encrypting data..."
 	for file in ./*; do
 		echo -ne "\rProgress: [$_start/$_lines]"
 		TRIGGER="$(random)"
-		openssl enc -e -k "$KEY $TRIGGER" -aes256 -in "$file" -out "$file".c -salt -iter 10000 -md sha512
-		echo "$TRIGGER" | openssl enc -e -k "$OLDKEY" -aes256 -in - -out - -salt -iter 10000 -base64 -A >> .base64
+		openssl enc -e -k "$KEY $TRIGGER" -aes256 -in "$file" -out "$file".c -salt -iter 10000 -md sha512 || exit 8
+		echo "$TRIGGER" | openssl enc -e -k "$OLDKEY" -aes256 -in - -out - -salt -iter 10000 -base64 -A >> .base64 || exit 8
 		echo '' >> .base64
 		rm -f "$file"
 		((_start++))
@@ -44,11 +44,11 @@ cryptall() {
 decryptall() {
 	local _start=1
 	local _lines="$(for i in ./*; do echo "$i"; done | wc -l)"
-	echo "Decrypting..."
+	echo "Decrypting data..."
 	for file in ./*; do
 		echo -ne "\rProgress: [$_start/$_lines]"
 		gettrigger $_start
-		openssl enc -d -k "$KEY $TRIGGER" -aes256 -in "$file" -out "$file".e -salt -iter 10000 -md sha512 || exit 1
+		openssl enc -d -k "$KEY $TRIGGER" -aes256 -in "$file" -out "$file".e -salt -iter 10000 -md sha512 || exit 8
 		rm -f "$file"
 		((_start++))
 	done
@@ -56,21 +56,23 @@ decryptall() {
 }
 
 transform() {
-	echo "Compressing..."
-	tar -c "$_S".*.artzip.c -f "$_S".tar
+	echo "Compressing archive..."
+	tar -c "$_S".*.artzip.c -f "$_S".tar || exit 9
 	rm "$_S".*.artzip.c
-	openssl enc -e -k "$(openssl passwd -6 -in <(echo "$_S") -salt "$(echo "$_S" | wc -m)")" -in "$_S".tar -out "$_S".az -salt -iter 10000 -md sha512
+	echo "Encrypting archive..."
+	openssl enc -e -k "$(openssl passwd -6 -in <(echo "$_S") -salt "$(echo "$_S" | wc -m)")" -in "$_S".tar -out "$_S".az -salt -iter 10000 -md sha512 || exit 8
 }
 transform2() {
+	echo "Decrypting archive..."
 	openssl enc -d -k "$(openssl passwd -6 -in <(echo "${FILENAME}") -salt "$(echo "${FILENAME}" | wc -m)")" -in "$EXTRACT" -out "$_S".tar -salt -iter 10000 -md sha512
 	echo "Unpacking..."
-	tar -x -v -f "$_S".tar
+	tar -x -v -f "$_S".tar || exit 9
 	rm "$_S".tar
 }
 transform3() {
 	local _start=1
 	local _lines="$(for i in ./*; do echo "$i"; done | wc -l)"
-	echo "Combining..."
+	echo "Combining data..."
 	for file in ./"$FILENAME".*.artzip.c.e; do
 		echo -ne "\rProgress: [$_start/$_lines]"
 		cat "$file" >> "$_S"
@@ -81,18 +83,14 @@ transform3() {
 }
 		
 
-if [[ "$1" != +(-c|--create|-x|--extract) ]]; then
-	echo "Specify what you are gonna do"
-	exit 1
-fi
 case "$1" in
 	-c|--create)
 	if [[ ! -f "$2" || -z "$2" ]]; then
-		echo "No raw file provided"
+		echo "Raw file not provided"
 		exit 1
 	fi
 	if [ -z "$3" ]; then
-		echo "No key specified"
+		echo "Encryption key not provided"
 		exit 1
 	fi
 	_P="$(dirname "$2")"
@@ -108,7 +106,7 @@ case "$1" in
 				exit 5
 			fi
 		else
-			echo "No file key found"
+			echo "Encryption keyfile not provided"
 			exit 3
 		fi
 	else
@@ -123,29 +121,29 @@ case "$1" in
 	;;
 	-x|--extract)
 	if [[ ! -f "$2" || -z "$2" ]]; then
-		echo "No compressed files prefix provided"
+		echo "Compressed file prefix not provided"
 		exit 2
 	fi
 	if [ "$2" != *.az ]; then
-		echo "$2 is not ArtZip archive"
+		echo "$2 is not a ArtZip archive"
 		exit 2
 	fi
 	if [ -z "$3" ]; then
-		echo "No key specified"
+		echo "Encryption key not provided"
 		exit 1
 	fi
 	_P="$(dirname "$2")"
 	_S="$(basename "$2")"
 	EXTRACT="$_P/$_S"
 	if [ -z "$EXTRACT" ]; then
-		echo "artzip files not found"
+		echo "ArtZip file not found"
 		exit 2
 	fi
 	if [[ "$3" == +(-f|--file) && -n "$4" ]]; then
 		if [ -f "$4" ]; then
 			KEY="$(< "$4")"
 		else
-			echo "key file not found"
+			echo "Encryption keyfile not provided"
 			exit 3
 		fi
 		if [ -f "$5" ]; then
@@ -157,7 +155,7 @@ case "$1" in
 		if [ -f "$6" ]; then
 			TRIGGERS="$(< "$6")"
 		else
-			echo "triggers file not found"
+			echo "Chunk key file not found"
 			exit 4
 		fi
 	else
@@ -171,10 +169,17 @@ case "$1" in
 		if [ -f "$5" ]; then
 			TRIGGERS="$(< "$5")"
 		else
-			echo "triggers file not found"
+			echo "Chunk file not found"
 			exit 4
 		fi
 	fi
+	;;
+	-h|--help)
+	bn="$(basename $0)"
+	echo "$bn --create FILE KEY/KEYFILE SED_DICT"
+	echo "$bn --extract FILE KEY/KEYFILE SED_DICT CHUNK_KEYFILE"
+	echo "  bash ${bn}_gen_sed_random > SED_DICT"
+	exit 0
 	;;
 	*)
 	echo "Unknown argument"
@@ -185,7 +190,7 @@ if [ -n "$CREATE" ]; then
 	duthis "$CREATE"
 	_PWD="$PWD"
 	rm -rf ./.ARTZIP_PROCESS
-	mkdir ./.ARTZIP_PROCESS || exit 1
+	mkdir ./.ARTZIP_PROCESS || exit 9
 	cd ./.ARTZIP_PROCESS
 	[ "${CREATE::2}" == "./" ] && CREATE=".${CREATE}"
 	split -b "$BS" "$CREATE" "$_S". --additional-suffix=.artzip
@@ -203,7 +208,7 @@ if [ -n "$EXTRACT" ]; then
 	duthis "$EXTRACT"
 	_PWD="$PWD"
 	rm -rf ./.ARTZIP_PROCESS
-	mkdir ./.ARTZIP_PROCESS || exit 1
+	mkdir ./.ARTZIP_PROCESS || exit 9
 	cd ./.ARTZIP_PROCESS
 	[ "${EXTRACT::2}" == "./" ] && EXTRACT=".${EXTRACT}"
 	OLDKEY="$KEY"
