@@ -200,8 +200,9 @@ if [ -n "$CREATE" ]; then
 	transform
 	mv "$_S".az "$_PWD"/"$_S".az
 	mv .base64 "$_PWD"/random_keys
-	rm -rf ./.ARTZIP_PROCESS
 	: ""
+	cd "$_PWD"
+	rm -rf ./.ARTZIP_PROCESS
 	exit 0
 fi
 if [ -n "$EXTRACT" ]; then
@@ -219,6 +220,7 @@ if [ -n "$EXTRACT" ]; then
 	transform3
 	mv "$_S" "$_PWD"/"$FILENAME"
 	: ""
+	cd "$_PWD"
 	rm -rf ./.ARTZIP_PROCESS
 	exit 0
 fi
