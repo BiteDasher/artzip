@@ -24,7 +24,7 @@ done <<<"$KEY")"
 	KEY="$(echo "$KEY" | sed -f <(echo "$FILE") -e ':a;N;$!ba;s/\n//g')"
 }
 gettrigger() {
-	TRIGGER="$(echo "$TRIGGERS" | sed "${1}q;d" | openssl enc -d -k "$OLDKEY" -aes256 -in - -out - -salt -iter 10000 -base64 -A)" || exit 8
+	TRIGGER="$(echo "$TRIGGERS" | sed "${1}q;d" | openssl enc -d -k "$OLDKEY" -aes256 -in - -out - -salt -iter 10000 -base64 -A)" || wrongkey2
 }
 cryptall() {
 	local _start=1
@@ -48,13 +48,21 @@ decryptall() {
 	for file in ./*; do
 		echo -ne "\rProgress: [$_start/$_lines]"
 		gettrigger $_start
-		openssl enc -d -k "$KEY $TRIGGER" -aes256 -in "$file" -out "$file".e -salt -iter 10000 -md sha512 || exit 8
+		openssl enc -d -k "$KEY $TRIGGER" -aes256 -in "$file" -out "$file".e -salt -iter 10000 -md sha512 || wrongkey2
 		rm -f "$file"
 		((_start++))
 	done
 	echo ''
 }
-
+wrongkey() {
+	echo ''
+	echo "! Unable to decrypt archive "$_S". Most likely, the file has the wrong name"
+	exit 8
+} >&2
+wrongkey2() {
+	echo "! Unable to decrypt archive data.  Most likely the chunk file is wrong"
+	exit 8
+} >&2
 transform() {
 	echo "Compressing archive..."
 	tar -c "$_S".*.artzip.c -f "$_S".tar || exit 9
@@ -64,7 +72,7 @@ transform() {
 }
 transform2() {
 	echo "Decrypting archive..."
-	openssl enc -d -k "$(openssl passwd -6 -in <(echo "${FILENAME}") -salt "$(echo "${FILENAME}" | wc -m)")" -in "$EXTRACT" -out "$_S".tar -salt -iter 10000 -md sha512
+	openssl enc -d -k "$(openssl passwd -6 -in <(echo "${FILENAME}") -salt "$(echo "${FILENAME}" | wc -m)")" -in "$EXTRACT" -out "$_S".tar -salt -iter 10000 -md sha512 || wrongkey
 	echo "Unpacking..."
 	tar -x -v -f "$_S".tar || exit 9
 	rm "$_S".tar

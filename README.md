@@ -6,6 +6,10 @@ A script for splitting files and encrypt them separately, and then combine them 
 artzip --create FILE KEY/KEYFILE SED_DICT
 artzip --extract FILE.az KEY/KEYFILE SED_DICT CHUNK_KEYFILE
 ```
+For creating SED\_DICT:
+```
+bash artzip_gen_sed_random > SED_DICT
+```
 
 ## Scheme of work:
 File clangd is 5 MB size \
