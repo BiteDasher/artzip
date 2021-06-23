@@ -202,7 +202,7 @@ if [ -n "$CREATE" ]; then
 	rm -rf ./.ARTZIP_PROCESS
 	mkdir ./.ARTZIP_PROCESS || exit 9
 	cd ./.ARTZIP_PROCESS
-	[ "${CREATE::2}" == "./" ] && CREATE=".${CREATE}"
+	[[ "${CREATE::1}" != "/" ]] && CREATE="../${CREATE}"
 	split -b "$BS" "$CREATE" "$_S". --additional-suffix=.artzip
 	OLDKEY="$KEY"
 	cryptkey
@@ -221,7 +221,7 @@ if [ -n "$EXTRACT" ]; then
 	rm -rf ./.ARTZIP_PROCESS
 	mkdir ./.ARTZIP_PROCESS || exit 9
 	cd ./.ARTZIP_PROCESS
-	[ "${EXTRACT::2}" == "./" ] && EXTRACT=".${EXTRACT}"
+	[[ "${EXTRACT::1}" != "/" ]] && EXTRACT="../${EXTRACT}"
 	OLDKEY="$KEY"
 	cryptkey
 	FILENAME="${_S%%.az}"
