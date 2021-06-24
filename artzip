@@ -69,11 +69,11 @@ transform() {
 	tar -c "$_S".*.artzip.c -f "$_S".tar || exit 9
 	rm "$_S".*.artzip.c
 	echo "Encrypting archive..."
-	openssl enc -e -k "$(openssl passwd -6 -in <(echo "$_S") -salt "$(echo "$_S" | wc -m)")" -in "$_S".tar -out "$_S".az -salt -iter 10000 -md sha512 || exit 8
+	openssl enc -e -k "$(openssl passwd -6 -in <(echo "$_S") -salt "$(echo "$_S" | wc -m)")" -in "$_S".tar -out "$_S".az -aes256 -salt -iter 10000 -md sha512 || exit 8
 }
 transform2() {
 	echo "Decrypting archive..."
-	openssl enc -d -k "$(openssl passwd -6 -in <(echo "${FILENAME}") -salt "$(echo "${FILENAME}" | wc -m)")" -in "$EXTRACT" -out "$_S".tar -salt -iter 10000 -md sha512 || wrongkey
+	openssl enc -d -k "$(openssl passwd -6 -in <(echo "${FILENAME}") -salt "$(echo "${FILENAME}" | wc -m)")" -in "$EXTRACT" -out "$_S".tar -aes256 -salt -iter 10000 -md sha512 || wrongkey
 	echo "Unpacking..."
 	tar -x -v -f "$_S".tar || exit 9
 	rm "$_S".tar
