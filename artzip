@@ -60,6 +60,7 @@ wrongkey() {
 	exit 8
 } >&2
 wrongkey2() {
+	echo ''
 	echo "! Unable to decrypt archive data.  Most likely the chunk file is wrong"
 	exit 8
 } >&2
