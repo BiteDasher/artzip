@@ -4,7 +4,7 @@ endif
 ifdef $(DESTDIR)
 	DESTDIR := $(DESTDIR)/
 endif
-$(eval INSTALL := $(shell if [ -n `sh -c 'echo "$$ANDROID_ROOT"'` ]; then echo /data/data/com.termux/files/usr/bin; else echo $(INSTALL); fi))
+$(eval INSTALL := $(shell if [ -n "$$(sh -c 'echo "$$ANDROID_ROOT"')" ]; then echo /data/data/com.termux/files/usr/bin; else echo $(INSTALL); fi))
 
 install:
 	install -Dm755 artzip $(DESTDIR)$(INSTALL)/artzip
